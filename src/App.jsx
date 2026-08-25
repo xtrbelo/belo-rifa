@@ -41,6 +41,7 @@ export default function App() {
   const [adminEmail, setAdminEmail] = useState('');
   const [adminPassword, setAdminPassword] = useState('');
   const [adminError, setAdminError] = useState('');
+  const [adminDashboardOpen, setAdminDashboardOpen] = useState(false);
   
   // Estado da Rifa
   const [config, setConfig] = useState({
@@ -94,6 +95,7 @@ export default function App() {
         setIsAdmin(true);
       } else {
         setIsAdmin(false);
+        setAdminDashboardOpen(false);
       }
     });
     return () => unsubscribe();
@@ -119,6 +121,7 @@ export default function App() {
       await signOut(auth);
       // Volta a logar anonimamente para o usuário continuar navegando e comprando rifas normalmente
       await signInAnonymously(auth);
+      setAdminDashboardOpen(false);
       document.getElementById('admin-login').classList.add('hidden');
     } catch (error) {
       console.error("Erro ao sair:", error);
@@ -334,11 +337,11 @@ export default function App() {
             <img src="Logo Belo.png" alt="Logo Belo Atleta Triathlon" className="h-12 md:h-16 object-contain drop-shadow-md" />
           </div>
           <button 
-            onClick={() => isAdmin ? handleAdminLogout() : document.getElementById('admin-login').classList.toggle('hidden')}
+            onClick={() => isAdmin ? setAdminDashboardOpen(true) : document.getElementById('admin-login').classList.toggle('hidden')}
             className="text-yellow-200 hover:text-white p-2 transition-colors"
             title="Área do Administrador"
           >
-            {isAdmin ? "Sair do Admin" : <Lock className="w-5 h-5" />}
+            {isAdmin ? <Settings className="w-5 h-5" /> : <Lock className="w-5 h-5" />}
           </button>
         </div>
         
@@ -412,7 +415,6 @@ export default function App() {
               </div>
             </div>
             
-            {isAdmin && <AdminPanel config={config} tickets={tickets} />}
           </div>
         </section>
 
@@ -480,6 +482,38 @@ export default function App() {
                 Compras temporariamente indisponíveis. Fale conosco pelo WhatsApp.
               </p>
             )}
+          </div>
+        </div>
+      )}
+
+      {isAdmin && adminDashboardOpen && (
+        <div className="fixed inset-0 z-[60] overflow-y-auto bg-slate-100">
+          <div className="min-h-screen">
+            <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur">
+              <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 md:px-8">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#293c8d] text-yellow-300 shadow-sm">
+                    <Settings className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate text-xs font-semibold uppercase tracking-wide text-slate-500">Rifa Solidária</p>
+                    <h1 className="truncate text-lg font-extrabold text-[#293c8d] md:text-xl">Centro de controle</h1>
+                  </div>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <button onClick={() => setAdminDashboardOpen(false)} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50">Voltar ao site</button>
+                  <button onClick={handleAdminLogout} className="rounded-lg bg-[#293c8d] px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-950">Sair</button>
+                </div>
+              </div>
+            </header>
+            <main className="mx-auto max-w-6xl px-4 py-6 md:px-8 md:py-8">
+              <div className="mb-6 flex flex-col gap-1">
+                <p className="text-sm font-semibold text-green-700">Visão operacional</p>
+                <h2 className="text-2xl font-extrabold tracking-tight text-slate-900 md:text-3xl">Acompanhe as vendas</h2>
+                <p className="max-w-2xl text-sm text-slate-600">Consulte compradores, acompanhe os números e exporte um relatório sem modificar os registros da rifa.</p>
+              </div>
+              <AdminPanel config={config} tickets={tickets} />
+            </main>
           </div>
         </div>
       )}
