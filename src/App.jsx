@@ -41,6 +41,7 @@ export default function App() {
   const [adminEmail, setAdminEmail] = useState('');
   const [adminPassword, setAdminPassword] = useState('');
   const [adminError, setAdminError] = useState('');
+  const [adminLoginOpen, setAdminLoginOpen] = useState(false);
   const [adminDashboardOpen, setAdminDashboardOpen] = useState(false);
   
   // Estado da Rifa
@@ -107,9 +108,10 @@ export default function App() {
     setAdminError('');
     try {
       await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
-      document.getElementById('admin-login').classList.add('hidden');
       setAdminEmail('');
       setAdminPassword('');
+      setAdminLoginOpen(false);
+      setAdminDashboardOpen(true);
     } catch (error) {
       console.error("Erro no login:", error);
       setAdminError('E-mail ou senha incorretos.');
@@ -121,8 +123,8 @@ export default function App() {
       await signOut(auth);
       // Volta a logar anonimamente para o usuário continuar navegando e comprando rifas normalmente
       await signInAnonymously(auth);
+      setAdminLoginOpen(false);
       setAdminDashboardOpen(false);
-      document.getElementById('admin-login').classList.add('hidden');
     } catch (error) {
       console.error("Erro ao sair:", error);
     }
@@ -337,7 +339,7 @@ export default function App() {
             <img src="Logo Belo.png" alt="Logo Belo Atleta Triathlon" className="h-12 md:h-16 object-contain drop-shadow-md" />
           </div>
           <button 
-            onClick={() => isAdmin ? setAdminDashboardOpen(true) : document.getElementById('admin-login').classList.toggle('hidden')}
+            onClick={() => isAdmin ? setAdminDashboardOpen(true) : setAdminLoginOpen(true)}
             className="text-yellow-200 hover:text-white p-2 transition-colors"
             title="Área do Administrador"
           >
@@ -345,33 +347,39 @@ export default function App() {
           </button>
         </div>
         
-        {/* Formulário de Login Admin Seguro */}
-        <div id="admin-login" className="hidden bg-blue-800 p-4 border-t border-blue-600">
-          <form onSubmit={handleAdminLogin} className="max-w-4xl mx-auto flex flex-col sm:flex-row gap-2 items-center">
-            <input 
-              type="email" 
-              required
-              placeholder="E-mail do Administrador" 
-              value={adminEmail}
-              onChange={(e) => setAdminEmail(e.target.value)}
-              className="px-3 py-2 rounded text-black flex-1 w-full sm:max-w-xs outline-none focus:ring-2 focus:ring-yellow-400"
-            />
-            <input 
-              type="password" 
-              required
-              placeholder="Senha" 
-              value={adminPassword}
-              onChange={(e) => setAdminPassword(e.target.value)}
-              className="px-3 py-2 rounded text-black flex-1 w-full sm:max-w-xs outline-none focus:ring-2 focus:ring-yellow-400"
-            />
-            <button 
-              type="submit"
-              className="w-full sm:w-auto bg-yellow-400 text-blue-900 px-6 py-2 rounded font-bold hover:bg-yellow-300 transition-colors"
-            >Entrar</button>
-            {adminError && <span className="text-red-300 text-sm font-medium w-full sm:w-auto text-center">{adminError}</span>}
-          </form>
-        </div>
       </header>
+
+      {adminLoginOpen && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div className="bg-[#293c8d] px-6 py-5 text-white">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="mb-1 text-xs font-semibold uppercase tracking-[0.18em] text-yellow-300">Acesso restrito</p>
+                  <h2 className="text-2xl font-extrabold">Área administrativa</h2>
+                  <p className="mt-1 text-sm text-blue-100">Entre para acompanhar as vendas da rifa.</p>
+                </div>
+                <button type="button" onClick={() => { setAdminLoginOpen(false); setAdminError(''); }} className="rounded-lg p-2 text-blue-100 transition-colors hover:bg-white/10 hover:text-white" aria-label="Fechar login">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+            <form onSubmit={handleAdminLogin} className="space-y-4 p-6">
+              <div>
+                <label htmlFor="admin-email" className="mb-1.5 block text-sm font-semibold text-slate-700">E-mail</label>
+                <input id="admin-email" type="email" required autoFocus placeholder="seu@email.com" value={adminEmail} onChange={(e) => setAdminEmail(e.target.value)} className="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 outline-none transition focus:border-[#293c8d] focus:ring-2 focus:ring-blue-100" />
+              </div>
+              <div>
+                <label htmlFor="admin-password" className="mb-1.5 block text-sm font-semibold text-slate-700">Senha</label>
+                <input id="admin-password" type="password" required placeholder="Digite sua senha" value={adminPassword} onChange={(e) => setAdminPassword(e.target.value)} className="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 outline-none transition focus:border-[#293c8d] focus:ring-2 focus:ring-blue-100" />
+              </div>
+              {adminError && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{adminError}</p>}
+              <button type="submit" className="w-full rounded-xl bg-green-700 px-4 py-3 font-bold text-white shadow-sm transition hover:bg-green-800">Entrar no painel</button>
+              <p className="text-center text-xs text-slate-500">Acesso protegido por autenticação do Firebase.</p>
+            </form>
+          </div>
+        </div>
+      )}
 
       <main className="max-w-4xl mx-auto px-4 py-6 relative">
         {/* Background Image Banner */}
@@ -520,7 +528,7 @@ export default function App() {
 
       {/* WHATSAPP FLOAT BUTTON */}
       <a 
-        href="https://wa.me/5596981189554?text=Olá,%20gostaria%20de%20tirar%20uma%20dúvida%20sobre%20a%20Rifa%20Solidária%20do%20Atleta%20Belo."
+        href="https://wa.me/5596991909077?text=Olá,%20gostaria%20de%20tirar%20uma%20dúvida%20sobre%20a%20Rifa%20Solidária%20do%20Atleta%20Belo."
         target="_blank"
         rel="noopener noreferrer"
         className="fixed bottom-24 right-4 bg-green-500 text-white p-3 rounded-full shadow-lg hover:bg-green-600 transition-colors z-40"
