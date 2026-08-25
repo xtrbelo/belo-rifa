@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
-import { getFirestore, doc, setDoc, onSnapshot, updateDoc, getDoc, runTransaction } from 'firebase/firestore';
-import { Ticket, Calendar, Trophy, ShoppingCart, User, Phone, CheckCircle, Lock, Settings, Plus, Trash2, X, MessageCircle, Download } from 'lucide-react';
+import { getFirestore, doc, setDoc, onSnapshot, getDoc, runTransaction } from 'firebase/firestore';
+import { Ticket, Calendar, Trophy, ShoppingCart, User, Phone, CheckCircle, Lock, Settings, Search, Download, X, MessageCircle } from 'lucide-react';
 
 // --- CONFIGURAÇÃO FIREBASE ---
 const requireEnv = (value, name) => {
@@ -412,7 +412,7 @@ export default function App() {
               </div>
             </div>
             
-            {isAdmin && <AdminPanel config={config} user={user} />}
+            {isAdmin && <AdminPanel config={config} tickets={tickets} />}
           </div>
         </section>
 
@@ -592,106 +592,83 @@ export default function App() {
 }
 
 // --- SUBCOMPONENTE: PAINEL DE ADMINISTRAÇÃO ---
-function AdminPanel({ config, user }) {
-  const [editing, setEditing] = useState(false);
-  const [formData, setFormData] = useState({...config});
-  const [newPrize, setNewPrize] = useState('');
+function AdminPanel({ config, tickets }) {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('sold');
 
-  const handleSave = async () => {
-    if(!user) return;
-    try {
-      const settingsRef = doc(getFirestore(), ...SETTINGS_PATH, 'main');
-      await updateDoc(settingsRef, {
-        totalNumbers: Number(formData.totalNumbers),
-        drawDate: formData.drawDate,
-        prizes: formData.prizes
-      });
-      setEditing(false);
-      alert("Configurações updated com sucesso!");
-    } catch (err) {
-      console.error(err);
-      alert("Erro ao salvar.");
-    }
+  const sales = Object.entries(tickets)
+    .filter(([, ticket]) => ticket?.status === 'sold')
+    .map(([number, ticket]) => ({ number, ...ticket }))
+    .sort((first, second) => first.number.localeCompare(second.number));
+  const availableCount = Math.max(Number(config.totalNumbers) - sales.length, 0);
+  const estimatedRevenue = sales.length * Number(config.price || 0);
+  const filteredTickets = (statusFilter === 'sold' ? sales : Object.entries(tickets)
+    .filter(([, ticket]) => statusFilter === 'available' ? ticket?.status !== 'sold' : true)
+    .map(([number, ticket]) => ({ number, ...ticket })))
+    .filter(({ number, buyerName = '', buyerPhone = '' }) => {
+      const query = searchTerm.trim().toLowerCase();
+      return !query || `${number} ${buyerName} ${buyerPhone}`.toLowerCase().includes(query);
+    });
+
+  const exportSales = () => {
+    const headers = ['Numero', 'Comprador', 'Telefone', 'Forma de pagamento', 'Data da compra', 'Status'];
+    const rows = sales.map(sale => [sale.number, sale.buyerName || '', sale.buyerPhone || '', sale.paymentMethod || '', sale.purchasedAt || '', sale.status]);
+    const csv = [headers, ...rows]
+      .map(row => row.map(value => `"${String(value).replaceAll('"', '""')}"`).join(';'))
+      .join('\n');
+    const blob = new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `relatorio-rifa-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
   };
-
-  const addPrize = () => {
-    if(newPrize.trim()) {
-      setFormData({...formData, prizes: [...formData.prizes, newPrize.trim()]});
-      setNewPrize('');
-    }
-  };
-
-  const removePrize = (index) => {
-    const p = [...formData.prizes];
-    p.splice(index, 1);
-    setFormData({...formData, prizes: p});
-  };
-
-  if (!editing) {
-    return (
-      <div className="bg-green-100/50 p-4 rounded-xl border border-green-200 min-w-[250px]">
-        <div className="flex items-center gap-2 mb-3 text-green-800 font-bold border-b border-green-200 pb-2">
-          <Settings className="w-5 h-5" /> Área Admin
-        </div>
-        <p className="text-sm mb-1 text-green-700"><strong>Números:</strong> {config.totalNumbers}</p>
-        <p className="text-sm mb-4 text-green-700"><strong>Data:</strong> {config.drawDate}</p>
-        <button onClick={() => setEditing(true)} className="w-full bg-green-700 text-white text-sm py-2 rounded font-medium hover:bg-green-600 transition-colors shadow-sm">
-          Editar Configurações
-        </button>
-      </div>
-    );
-  }
 
   return (
-    <div className="bg-blue-50 p-4 rounded-xl border border-blue-200 min-w-[300px]">
-      <div className="font-bold mb-4 text-blue-900">Editar Rifa</div>
-      
-      <div className="space-y-3">
-        <div>
-          <label className="text-xs font-semibold text-slate-600 uppercase">Aumentar Números Iniciais</label>
-          <input 
-            type="number" 
-            value={formData.totalNumbers}
-            onChange={(e) => setFormData({...formData, totalNumbers: e.target.value})}
-            className="w-full p-2 border rounded text-sm mt-1 focus:ring-2 focus:ring-blue-500 outline-none"
-          />
-        </div>
-        
-        <div>
-          <label className="text-xs font-semibold text-slate-600 uppercase">Data do Sorteio</label>
-          <input 
-            type="text" 
-            value={formData.drawDate}
-            onChange={(e) => setFormData({...formData, drawDate: e.target.value})}
-            className="w-full p-2 border rounded text-sm mt-1 focus:ring-2 focus:ring-blue-500 outline-none"
-            placeholder="Ex: 20 de Dezembro de 2026"
-          />
-        </div>
-
-        <div>
-          <label className="text-xs font-semibold text-slate-600 uppercase">Prêmios</label>
-          <div className="flex gap-2 mt-1 mb-2">
-            <input 
-              type="text" value={newPrize} onChange={e => setNewPrize(e.target.value)} 
-              className="flex-1 p-2 border rounded text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Novo prêmio..."
-            />
-            <button onClick={addPrize} className="bg-green-500 hover:bg-green-600 text-white p-2 rounded transition-colors"><Plus className="w-4 h-4" /></button>
+    <div className="w-full bg-white p-4 md:p-6 rounded-xl border border-blue-200 shadow-sm">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200 pb-4">
+        <div className="flex items-center gap-2 text-[#293c8d]">
+          <Settings className="w-5 h-5" />
+          <div>
+            <h3 className="font-bold">Painel administrativo</h3>
+            <p className="text-xs text-slate-500">Relatórios em tempo real, sem alterar os dados.</p>
           </div>
-          <ul className="text-sm space-y-1">
-            {formData.prizes.map((p, i) => (
-              <li key={i} className="flex justify-between items-center bg-white p-2 rounded border border-slate-200">
-                <span>{p}</span>
-                <button onClick={() => removePrize(i)} className="text-red-500 hover:bg-red-50 p-1 rounded transition-colors"><Trash2 className="w-4 h-4"/></button>
-              </li>
-            ))}
-          </ul>
         </div>
+        <button onClick={exportSales} disabled={!sales.length} className="inline-flex items-center justify-center gap-2 rounded-lg bg-green-700 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-green-800 disabled:cursor-not-allowed disabled:opacity-50">
+          <Download className="w-4 h-4" /> Exportar vendas CSV
+        </button>
       </div>
 
-      <div className="flex gap-2 mt-4">
-        <button onClick={() => setEditing(false)} className="flex-1 bg-slate-300 text-slate-800 py-2 rounded font-medium text-sm hover:bg-slate-400 transition-colors">Cancelar</button>
-        <button onClick={handleSave} className="flex-1 bg-blue-600 text-white py-2 rounded font-medium text-sm hover:bg-blue-700 transition-colors shadow-sm">Salvar</button>
+      <div className="grid grid-cols-2 gap-3 py-4 md:grid-cols-4">
+        <div className="rounded-lg bg-blue-50 p-3"><p className="text-xs text-slate-600">Vendidos</p><p className="text-2xl font-bold text-[#293c8d]">{sales.length}</p></div>
+        <div className="rounded-lg bg-green-50 p-3"><p className="text-xs text-slate-600">Disponíveis</p><p className="text-2xl font-bold text-green-700">{availableCount}</p></div>
+        <div className="rounded-lg bg-yellow-50 p-3"><p className="text-xs text-slate-600">Arrecadação estimada</p><p className="text-lg font-bold text-yellow-800">R$ {estimatedRevenue.toFixed(2).replace('.', ',')}</p></div>
+        <div className="rounded-lg bg-slate-50 p-3"><p className="text-xs text-slate-600">Compradores</p><p className="text-2xl font-bold text-slate-700">{new Set(sales.map(sale => `${sale.buyerName || ''}|${sale.buyerPhone || ''}`)).size}</p></div>
       </div>
+
+      <div className="flex flex-col gap-2 md:flex-row">
+        <label className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <input value={searchTerm} onChange={event => setSearchTerm(event.target.value)} placeholder="Buscar por número, nome ou telefone" className="w-full rounded-lg border border-slate-300 py-2 pl-9 pr-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
+        </label>
+        <select value={statusFilter} onChange={event => setStatusFilter(event.target.value)} className="rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500">
+          <option value="sold">Vendidos</option>
+          <option value="available">Disponíveis</option>
+          <option value="all">Todos os registros</option>
+        </select>
+      </div>
+
+      <div className="mt-4 overflow-x-auto rounded-lg border border-slate-200">
+        <table className="w-full min-w-[680px] text-left text-sm">
+          <thead className="bg-slate-50 text-xs uppercase text-slate-500"><tr><th className="px-3 py-2">Número</th><th className="px-3 py-2">Comprador</th><th className="px-3 py-2">Telefone</th><th className="px-3 py-2">Pagamento</th><th className="px-3 py-2">Data</th><th className="px-3 py-2">Status</th></tr></thead>
+          <tbody>
+            {filteredTickets.map(ticket => <tr key={ticket.number} className="border-t border-slate-100"><td className="px-3 py-2 font-bold text-[#293c8d]">{ticket.number}</td><td className="px-3 py-2">{ticket.buyerName || '-'}</td><td className="px-3 py-2">{ticket.buyerPhone || '-'}</td><td className="px-3 py-2">{ticket.paymentMethod || '-'}</td><td className="px-3 py-2">{ticket.purchasedAt ? new Date(ticket.purchasedAt).toLocaleString('pt-BR') : '-'}</td><td className="px-3 py-2"><span className={ticket.status === 'sold' ? 'font-semibold text-blue-700' : 'font-semibold text-green-700'}>{ticket.status === 'sold' ? 'Vendido' : 'Disponível'}</span></td></tr>)}
+            {!filteredTickets.length && <tr><td colSpan="6" className="px-3 py-6 text-center text-slate-500">Nenhum registro encontrado.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+      <p className="mt-2 text-xs text-slate-500">Exibindo {filteredTickets.length} registro(s). A arrecadação é uma estimativa baseada no preço configurado.</p>
     </div>
   );
 }
