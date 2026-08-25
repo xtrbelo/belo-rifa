@@ -4,15 +4,15 @@ import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, 
 import { getFirestore, doc, setDoc, onSnapshot, updateDoc, getDoc, runTransaction } from 'firebase/firestore';
 import { Ticket, Calendar, Trophy, ShoppingCart, User, Phone, CheckCircle, Lock, Settings, Plus, Trash2, X, MessageCircle, Download } from 'lucide-react';
 
-// --- CONFIGURAÇÃO FIREBASE (Regras do Ambiente) ---
+// --- CONFIGURAÇÃO FIREBASE ---
 const firebaseConfig = {
-  apiKey: "AIzaSyBqd6vAsml9UVcz69B-GZXPtFE0n7EQ1gU",
-  authDomain: "rifa-belo.firebaseapp.com",
-  projectId: "rifa-belo",
-  storageBucket: "rifa-belo.firebasestorage.app",
-  messagingSenderId: "129663950539",
-  appId: "1:129663950539:web:3380a6ea45e3ec70eb454e",
-  measurementId: "G-1YD9HLBH75"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
 const firebaseApp = initializeApp(firebaseConfig);
